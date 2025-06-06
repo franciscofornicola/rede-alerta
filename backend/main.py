@@ -49,7 +49,7 @@ def create_alerta(
 @app.get("/alertas/", response_model=List[Alerta])
 def read_alertas(db: Session = Depends(get_db)): # Injetar dependência
     # Consultar todos os Alertas no BD usando select
-    alertas = db.execute(select(models.Alerta)).scalars().all()
+    alertas = db.execute(select(models.Alerta.__table__)).all()
     return alertas
 
 # Rota para obter um Alerta específico por ID
@@ -59,7 +59,7 @@ def read_alerta(
     db: Session = Depends(get_db) # Injetar dependência
 ):
     # Consultar por ID usando select e where
-    alerta = db.execute(select(models.Alerta).where(models.Alerta.id == alerta_id)).scalars().first()
+    alerta = db.execute(select(models.Alerta.__table__).where(models.Alerta.id == alerta_id)).first()
     if alerta is None:
         raise HTTPException(status_code=404, detail="Alerta não encontrado")
     return alerta
