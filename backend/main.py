@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends # Importar Depends
 from typing import List, Optional
-from models import Alerta as AlertaSchema, RelatoCreate, AlertaUpdateStatus, Usuario as UsuarioSchema, Regiao as RegiaoSchema, UsuarioCreate, RegiaoCreate # Importar modelos Pydantic
+from models import Base, Alerta as AlertaModel, RelatoCreate, AlertaUpdateStatus, Usuario as UsuarioModel, Regiao as RegiaoModel, Usuario as UsuarioSchema, Regiao as RegiaoSchema, UsuarioCreate, RegiaoCreate # Importar modelos Pydantic
 import models # Importar modelos SQLAlchemy (tabelas)
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session # Importar Session
@@ -32,7 +32,7 @@ def create_alerta(
     db: Session = Depends(get_db) # Injetar dependência do banco de dados
 ):
     # Criar uma instância do modelo SQLAlchemy Alerta
-    db_alerta = models.Alerta(
+    db_alerta = AlertaModel(
         tipo=relato.tipo,
         descricao=relato.descricao,
         latitude=relato.latitude,
@@ -49,7 +49,7 @@ def create_alerta(
 @app.get("/alertas/", response_model=List[AlertaSchema])
 def read_alertas(db: Session = Depends(get_db)): # Injetar dependência
     # Consultar todos os Alertas no BD usando select
-    alertas = db.query(models.Alerta).all()
+    alertas = db.query(AlertaModel).all()
     return alertas
 
 # Rota para obter um Alerta específico por ID
@@ -59,7 +59,7 @@ def read_alerta(
     db: Session = Depends(get_db) # Injetar dependência
 ):
     # Consultar por ID usando select e where
-    alerta = db.query(models.Alerta).filter(models.Alerta.id == alerta_id).first()
+    alerta = db.query(AlertaModel).filter(AlertaModel.id == alerta_id).first()
     if alerta is None:
         raise HTTPException(status_code=404, detail="Alerta não encontrado")
     return alerta
@@ -71,7 +71,7 @@ def update_alerta_status(
     status_update: AlertaUpdateStatus,
     db: Session = Depends(get_db) # Injetar dependência
 ):
-    alerta = db.query(models.Alerta).filter(models.Alerta.id == alerta_id).first() # Consultar por ID
+    alerta = db.query(AlertaModel).filter(AlertaModel.id == alerta_id).first() # Consultar por ID
     if alerta is None:
         raise HTTPException(status_code=404, detail="Alerta não encontrado")
     
@@ -86,7 +86,7 @@ def delete_alerta(
     alerta_id: int,
     db: Session = Depends(get_db) # Injetar dependência
 ):
-    alerta = db.query(models.Alerta).filter(models.Alerta.id == alerta_id).first() # Consultar por ID
+    alerta = db.query(AlertaModel).filter(AlertaModel.id == alerta_id).first() # Consultar por ID
     if alerta is None:
         raise HTTPException(status_code=404, detail="Alerta não encontrado")
     
