@@ -1,20 +1,17 @@
 from pydantic import BaseModel
 from typing import List, Optional
-from sqlalchemy import Column, Integer, String, Float, Sequence # Importar Sequence
-from sqlalchemy.ext.declarative import declarative_base # Importar declarative_base
+from sqlalchemy import Column, Integer, String, Float
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql.sqltypes import DateTime
 
 # Definir a base declarativa
 Base = declarative_base()
 
-# Definir a sequence para o ID do Alerta (Nome da sequence no Oracle pode variar)
-alerta_id_seq = Sequence('alertas_id_seq')
-
 # Definir o modelo SQLAlchemy (Tabela) para Alerta
 class Alerta(Base):
     __tablename__ = "alertas"
 
-    id = Column(Integer, alerta_id_seq, server_default=alerta_id_seq.next_value(), primary_key=True, index=True) # Adicionar sequence e server_default
+    id = Column(Integer, primary_key=True, index=True)
     tipo = Column(String(255))
     descricao = Column(String(500))
     latitude = Column(Float)
