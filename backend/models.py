@@ -17,8 +17,7 @@ class Alerta(Base):
     latitude = Column(Float)
     longitude = Column(Float)
     status = Column(String(255), default="Em análise")
-    # data_ocorrencia = Column(DateTime) # Exemplo de coluna de data/hora
-    data_ocorrencia = Column(String(255)) # Mantido como string por enquanto
+    data_ocorrencia = Column(String(255))
 
     # Adicione outros campos relevantes (ex: usuario_id, data_registro, etc.)
 

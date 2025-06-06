@@ -26,7 +26,7 @@ def read_root():
 # Rotas CRUD para Alertas
 
 # Rota para criar um novo Alerta (usando o modelo RelatoCreate como payload)
-@app.post("/alertas/", response_model=AlertaSchema)
+@app.post("/alertas/", response_model=AlertaModel)
 def create_alerta(
     relato: RelatoCreate,
     db: Session = Depends(get_db) # Injetar dependência do banco de dados
@@ -46,14 +46,14 @@ def create_alerta(
     return db_alerta # Retorna o objeto recém-criado com o ID
 
 # Rota para listar todos os Alertas
-@app.get("/alertas/", response_model=List[AlertaSchema])
+@app.get("/alertas/", response_model=List[AlertaModel])
 def read_alertas(db: Session = Depends(get_db)): # Injetar dependência
     # Consultar todos os Alertas no BD usando select
     alertas = db.query(AlertaModel).all()
     return alertas
 
 # Rota para obter um Alerta específico por ID
-@app.get("/alertas/{alerta_id}", response_model=AlertaSchema)
+@app.get("/alertas/{alerta_id}", response_model=AlertaModel)
 def read_alerta(
     alerta_id: int,
     db: Session = Depends(get_db) # Injetar dependência
@@ -65,7 +65,7 @@ def read_alerta(
     return alerta
 
 # Rota para atualizar o status de um Alerta
-@app.put("/alertas/{alerta_id}/status", response_model=AlertaSchema)
+@app.put("/alertas/{alerta_id}/status", response_model=AlertaModel)
 def update_alerta_status(
     alerta_id: int,
     status_update: AlertaUpdateStatus,
@@ -230,5 +230,7 @@ def startup_event():
     except Exception as e:
         print(f"ERROR: Erro ao criar tabelas do banco de dados: {e}")
         # Em produção, você pode querer sair ou logar severamente
+
+app.add_event_handler("startup", startup_event)
 
 
