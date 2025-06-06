@@ -6,7 +6,7 @@ import models # Importar modelos SQLAlchemy (tabelas)
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session # Importar Session
 from database import SessionLocal, engine, get_db # Importar get_db e outros de database
-from sqlalchemy import text # Importar text para queries brutas se necessário (ex: create_all)
+from sqlalchemy import text, select # Importar text e select
 
 app = FastAPI()
 
@@ -48,7 +48,8 @@ def create_alerta(
 # Rota para listar todos os Alertas
 @app.get("/alertas/", response_model=List[Alerta])
 def read_alertas(db: Session = Depends(get_db)): # Injetar dependência
-    alertas = db.query(models.Alerta).all() # Consultar todos os Alertas no BD
+    # Consultar todos os Alertas no BD usando select
+    alertas = db.execute(select(models.Alerta)).scalars().all()
     return alertas
 
 # Rota para obter um Alerta específico por ID
@@ -57,7 +58,8 @@ def read_alerta(
     alerta_id: int,
     db: Session = Depends(get_db) # Injetar dependência
 ):
-    alerta = db.query(models.Alerta).filter(models.Alerta.id == alerta_id).first() # Consultar por ID
+    # Consultar por ID usando select e where
+    alerta = db.execute(select(models.Alerta).where(models.Alerta.id == alerta_id)).scalars().first()
     if alerta is None:
         raise HTTPException(status_code=404, detail="Alerta não encontrado")
     return alerta
