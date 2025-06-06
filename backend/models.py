@@ -51,7 +51,7 @@ class AlertaBase(BaseModel):
 class AlertaCreate(AlertaBase): # Modelo para criar Alerta (não precisa de ID)
     pass
 
-class Alerta(AlertaBase):
+class AlertaSchema(AlertaBase):
     id: int
     status: str
     data_ocorrencia: str # Manter como string por consistência com o modelo SQLAlchemy
@@ -67,7 +67,7 @@ class UsuarioBase(BaseModel):
 class UsuarioCreate(UsuarioBase):
     senha: str # Senha é necessária na criação
 
-class Usuario(UsuarioBase):
+class UsuarioSchema(UsuarioBase):
     id: int
     # Não incluir senha_hashed no modelo de retorno da API
 
@@ -81,7 +81,7 @@ class RegiaoBase(BaseModel):
 class RegiaoCreate(RegiaoBase):
     pass
 
-class Regiao(RegiaoBase):
+class RegiaoSchema(RegiaoBase):
     id: int
 
     class Config:
