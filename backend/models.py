@@ -1,23 +1,26 @@
 from pydantic import BaseModel
 from typing import List, Optional
-from sqlalchemy import Column, Integer, String, Float # Importar tipos de colunas
+from sqlalchemy import Column, Integer, String, Float, Sequence # Importar Sequence
 from sqlalchemy.ext.declarative import declarative_base # Importar declarative_base
 from sqlalchemy.sql.sqltypes import DateTime
 
 # Definir a base declarativa
 Base = declarative_base()
 
+# Definir a sequence para o ID do Alerta (Nome da sequence no Oracle pode variar)
+alerta_id_seq = Sequence('alertas_id_seq')
+
 # Definir o modelo SQLAlchemy (Tabela) para Alerta
 class Alerta(Base):
     __tablename__ = "alertas"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, alerta_id_seq, server_default=alerta_id_seq.next_value(), primary_key=True, index=True) # Adicionar sequence e server_default
     tipo = Column(String(255))
     descricao = Column(String(500))
     latitude = Column(Float)
     longitude = Column(Float)
     status = Column(String(50), default="Em análise")
-    data_ocorrencia = Column(String(50))
+    data_ocorrencia = Column(String(50)) # Manter como String por enquanto, ajustar se necessário para DateTime no Oracle
 
     # Adicione outros campos relevantes (ex: usuario_id, data_registro, etc.)
 
@@ -25,7 +28,7 @@ class Alerta(Base):
 class Usuario(Base):
     __tablename__ = "usuarios"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True) # Assumindo que o ID de usuário também tem sequence/autogen
     nome = Column(String(100))
     email = Column(String(100), unique=True, index=True)
     senha_hashed = Column(String(100)) # Armazenar senha hashed, não a senha pura
@@ -35,7 +38,7 @@ class Usuario(Base):
 class Regiao(Base):
     __tablename__ = "regioes"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True) # Assumindo que o ID de região também tem sequence/autogen
     nome = Column(String(100), unique=True, index=True)
     # Adicione outros campos
 
