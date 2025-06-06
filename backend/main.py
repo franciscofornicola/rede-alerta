@@ -10,19 +10,6 @@ from sqlalchemy import text # Importar text para queries brutas se necessário (
 
 app = FastAPI()
 
-# Criar tabelas no banco de dados ao iniciar a aplicação (se não existirem)
-# Remover ou ajustar isso em produção se o esquema for gerenciado de outra forma
-@app.on_event("startup")
-def startup_event():
-    import models # Importar modelos SQLAlchemy (tabelas) - MOVIDO PARA DENTRO DA FUNÇÃO
-    try:
-        # Cria todas as tabelas definidas em models.py
-        models.Base.metadata.create_all(bind=engine)
-        print("INFO: Tabelas do banco de dados verificadas/criadas com sucesso.")
-    except Exception as e:
-        print(f"ERROR: Erro ao criar tabelas do banco de dados: {e}")
-        # Em produção, você pode querer sair ou logar severamente
-
 # Adicionar middleware CORS - Remover se não for mais necessário com o deploy
 app.add_middleware(
     CORSMiddleware,
@@ -231,5 +218,15 @@ def delete_regiao(
     db.delete(regiao)
     db.commit()
     return {"message": f"Região com ID {regiao_id} deletada"}
+
+def startup_event():
+    import models # Importar modelos SQLAlchemy (tabelas) - MOVIDO PARA DENTRO DA FUNÇÃO
+    try:
+        # Cria todas as tabelas definidas em models.py
+        models.Base.metadata.create_all(bind=engine)
+        print("INFO: Tabelas do banco de dados verificadas/criadas com sucesso.")
+    except Exception as e:
+        print(f"ERROR: Erro ao criar tabelas do banco de dados: {e}")
+        # Em produção, você pode querer sair ou logar severamente
 
 
