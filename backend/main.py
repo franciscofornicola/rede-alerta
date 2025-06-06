@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends # Importar Depends
 from typing import List, Optional
-from models import Alerta, RelatoCreate, AlertaUpdateStatus, Usuario, Regiao, UsuarioCreate, RegiaoCreate # Importar modelos Pydantic
+from models import Alerta as AlertaSchema, RelatoCreate, AlertaUpdateStatus, Usuario as UsuarioSchema, Regiao as RegiaoSchema, UsuarioCreate, RegiaoCreate # Importar modelos Pydantic
 import models # Importar modelos SQLAlchemy (tabelas)
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session # Importar Session
@@ -21,12 +21,12 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return {"message": "Bem-vindo ao Backend Rede Alerta!"}
+    return {"message": "Bem-vindo à API da Rede Alerta"}
 
 # Rotas CRUD para Alertas
 
 # Rota para criar um novo Alerta (usando o modelo RelatoCreate como payload)
-@app.post("/alertas/", response_model=Alerta)
+@app.post("/alertas/", response_model=AlertaSchema)
 def create_alerta(
     relato: RelatoCreate,
     db: Session = Depends(get_db) # Injetar dependência do banco de dados
@@ -46,26 +46,26 @@ def create_alerta(
     return db_alerta # Retorna o objeto recém-criado com o ID
 
 # Rota para listar todos os Alertas
-@app.get("/alertas/", response_model=List[Alerta])
+@app.get("/alertas/", response_model=List[AlertaSchema])
 def read_alertas(db: Session = Depends(get_db)): # Injetar dependência
     # Consultar todos os Alertas no BD usando select
-    alertas = db.execute(select(models.Alerta.__table__)).all()
+    alertas = db.query(models.Alerta).all()
     return alertas
 
 # Rota para obter um Alerta específico por ID
-@app.get("/alertas/{alerta_id}", response_model=Alerta)
+@app.get("/alertas/{alerta_id}", response_model=AlertaSchema)
 def read_alerta(
     alerta_id: int,
     db: Session = Depends(get_db) # Injetar dependência
 ):
     # Consultar por ID usando select e where
-    alerta = db.execute(select(models.Alerta.__table__).where(models.Alerta.id == alerta_id)).first()
+    alerta = db.query(models.Alerta).filter(models.Alerta.id == alerta_id).first()
     if alerta is None:
         raise HTTPException(status_code=404, detail="Alerta não encontrado")
     return alerta
 
 # Rota para atualizar o status de um Alerta
-@app.put("/alertas/{alerta_id}/status", response_model=Alerta)
+@app.put("/alertas/{alerta_id}/status", response_model=AlertaSchema)
 def update_alerta_status(
     alerta_id: int,
     status_update: AlertaUpdateStatus,
@@ -96,7 +96,7 @@ def delete_alerta(
 
 # Rotas CRUD para Usuários
 
-@app.post("/usuarios/", response_model=Usuario)
+@app.post("/usuarios/", response_model=UsuarioSchema)
 def create_usuario(
     usuario: UsuarioCreate, # Usar modelo Create para entrada
     db: Session = Depends(get_db)
@@ -113,12 +113,12 @@ def create_usuario(
     db.refresh(db_usuario)
     return db_usuario # Retorna o objeto recém-criado com o ID
 
-@app.get("/usuarios/", response_model=List[Usuario])
+@app.get("/usuarios/", response_model=List[UsuarioSchema])
 def read_usuarios(db: Session = Depends(get_db)):
     usuarios = db.query(models.Usuario).all()
     return usuarios
 
-@app.get("/usuarios/{usuario_id}", response_model=Usuario)
+@app.get("/usuarios/{usuario_id}", response_model=UsuarioSchema)
 def read_usuario(
     usuario_id: int,
     db: Session = Depends(get_db)
@@ -128,7 +128,7 @@ def read_usuario(
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     return usuario
 
-@app.put("/usuarios/{usuario_id}", response_model=Usuario)
+@app.put("/usuarios/{usuario_id}", response_model=UsuarioSchema)
 def update_usuario(
     usuario_id: int,
     usuario_update: UsuarioCreate, # Usar modelo Create para entrada (inclui senha)
@@ -162,7 +162,7 @@ def delete_usuario(
 
 # Rotas CRUD para Regiões
 
-@app.post("/regioes/", response_model=Regiao)
+@app.post("/regioes/", response_model=RegiaoSchema)
 def create_regiao(
     regiao: RegiaoCreate, # Usar modelo Create para entrada
     db: Session = Depends(get_db)
@@ -176,12 +176,12 @@ def create_regiao(
     db.refresh(db_regiao)
     return db_regiao # Retorna o objeto recém-criado com o ID
 
-@app.get("/regioes/", response_model=List[Regiao])
+@app.get("/regioes/", response_model=List[RegiaoSchema])
 def read_regioes(db: Session = Depends(get_db)):
     regioes = db.query(models.Regiao).all()
     return regioes
 
-@app.get("/regioes/{regiao_id}", response_model=Regiao)
+@app.get("/regioes/{regiao_id}", response_model=RegiaoSchema)
 def read_regiao(
     regiao_id: int,
     db: Session = Depends(get_db)
@@ -191,7 +191,7 @@ def read_regiao(
         raise HTTPException(status_code=404, detail="Região não encontrada")
     return regiao
 
-@app.put("/regioes/{regiao_id}", response_model=Regiao)
+@app.put("/regioes/{regiao_id}", response_model=RegiaoSchema)
 def update_regiao(
     regiao_id: int,
     regiao_update: RegiaoCreate, # Usar modelo Create para entrada
