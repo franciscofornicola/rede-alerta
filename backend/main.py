@@ -1,15 +1,35 @@
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
-from typing import List, Optional # Importar Optional
-from models import Alerta, RelatoCreate, AlertaUpdateStatus, Usuario, Regiao # Importar novos modelos
+from fastapi import FastAPI, HTTPException, Depends # Importar Depends
+from typing import List, Optional
+from models import Alerta, RelatoCreate, AlertaUpdateStatus, Usuario, Regiao, UsuarioCreate, RegiaoCreate # Importar modelos Pydantic
+import models # Importar modelos SQLAlchemy (tabelas)
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session # Importar Session
+from database import SessionLocal, engine, get_db # Importar get_db e outros de database
+from sqlalchemy import text # Importar text para queries brutas se necessário (ex: create_all)
+
+# Criar tabelas no banco de dados ao iniciar a aplicação (se não existirem)
+# Remover ou ajustar isso em produção se o esquema for gerenciado de outra forma
+@app.on_event("startup")
+def startup_event():
+    try:
+        # Cria todas as tabelas definidas em models.py
+        models.Base.metadata.create_all(bind=engine)
+        print("INFO: Tabelas do banco de dados verificadas/criadas com sucesso.")
+    except Exception as e:
+        print(f"ERROR: Erro ao criar tabelas do banco de dados: {e}")
+        # Em produção, você pode querer sair ou logar severamente
 
 app = FastAPI()
 
-# Listas em memória para simular o banco de dados (REMOVER ao integrar com Oracle)
-alertas_db = []
-usuarios_db = []
-regioes_db = []
+# Adicionar middleware CORS - Remover se não for mais necessário com o deploy
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Permitir todas as origens
+    allow_credentials=True,
+    allow_methods=["*"], # Permitir todos os métodos (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"], # Permitir todos os cabeçalhos
+)
 
 @app.get("/")
 def read_root():
@@ -19,123 +39,196 @@ def read_root():
 
 # Rota para criar um novo Alerta (usando o modelo RelatoCreate como payload)
 @app.post("/alertas/", response_model=Alerta)
-def create_alerta(relato: RelatoCreate):
-    # Simula a criação de um ID e a data de ocorrência
-    new_alerta = Alerta(
-        id=len(alertas_db) + 1,
+def create_alerta(
+    relato: RelatoCreate,
+    db: Session = Depends(get_db) # Injetar dependência do banco de dados
+):
+    # Criar uma instância do modelo SQLAlchemy Alerta
+    db_alerta = models.Alerta(
         tipo=relato.tipo,
         descricao=relato.descricao,
         latitude=relato.latitude,
         longitude=relato.longitude,
-        data_ocorrencia="Hoje" # Placeholder, usar data/hora real depois
+        # status e data_ocorrencia terão valores padrão ou serão gerados pelo BD/backend
+        # Você pode adicionar lógica para definir status inicial e data/hora aqui
     )
-    alertas_db.append(new_alerta)
-    return new_alerta
+    db.add(db_alerta) # Adicionar o objeto ao staged da sessão
+    db.commit() # Commitar a transação (salvar no BD)
+    db.refresh(db_alerta) # Atualizar o objeto com o ID gerado pelo BD
+    return db_alerta # Retorna o objeto recém-criado com o ID
 
 # Rota para listar todos os Alertas
 @app.get("/alertas/", response_model=List[Alerta])
-def read_alertas():
-    return alertas_db
+def read_alertas(db: Session = Depends(get_db)): # Injetar dependência
+    alertas = db.query(models.Alerta).all() # Consultar todos os Alertas no BD
+    return alertas
 
 # Rota para obter um Alerta específico por ID
 @app.get("/alertas/{alerta_id}", response_model=Alerta)
-def read_alerta(alerta_id: int):
-    for alerta in alertas_db:
-        if alerta.id == alerta_id:
-            return alerta
-    raise HTTPException(status_code=404, detail="Alerta não encontrado")
+def read_alerta(
+    alerta_id: int,
+    db: Session = Depends(get_db) # Injetar dependência
+):
+    alerta = db.query(models.Alerta).filter(models.Alerta.id == alerta_id).first() # Consultar por ID
+    if alerta is None:
+        raise HTTPException(status_code=404, detail="Alerta não encontrado")
+    return alerta
 
 # Rota para atualizar o status de um Alerta
 @app.put("/alertas/{alerta_id}/status", response_model=Alerta)
-def update_alerta_status(alerta_id: int, status_update: AlertaUpdateStatus):
-    for alerta in alertas_db:
-        if alerta.id == alerta_id:
-            alerta.status = status_update.status
-            return alerta
-    raise HTTPException(status_code=404, detail="Alerta não encontrado")
+def update_alerta_status(
+    alerta_id: int,
+    status_update: AlertaUpdateStatus,
+    db: Session = Depends(get_db) # Injetar dependência
+):
+    alerta = db.query(models.Alerta).filter(models.Alerta.id == alerta_id).first() # Consultar por ID
+    if alerta is None:
+        raise HTTPException(status_code=404, detail="Alerta não encontrado")
+    
+    alerta.status = status_update.status # Atualizar o campo
+    db.commit() # Commitar a transação
+    db.refresh(alerta) # Atualizar o objeto
+    return alerta
 
 # Rota para deletar um Alerta
 @app.delete("/alertas/{alerta_id}")
-def delete_alerta(alerta_id: int):
-    global alertas_db
-    initial_len = len(alertas_db)
-    alertas_db = [alerta for alerta in alertas_db if alerta.id != alerta_id]
-    if len(alertas_db) < initial_len:
-        return {"message": f"Alerta com ID {alerta_id} deletado"}
-    raise HTTPException(status_code=404, detail="Alerta não encontrado")
+def delete_alerta(
+    alerta_id: int,
+    db: Session = Depends(get_db) # Injetar dependência
+):
+    alerta = db.query(models.Alerta).filter(models.Alerta.id == alerta_id).first() # Consultar por ID
+    if alerta is None:
+        raise HTTPException(status_code=404, detail="Alerta não encontrado")
+    
+    db.delete(alerta) # Deletar o objeto
+    db.commit() # Commitar a transação
+    return {"message": f"Alerta com ID {alerta_id} deletado"}
 
 # Rotas CRUD para Usuários
 
 @app.post("/usuarios/", response_model=Usuario)
-def create_usuario(usuario: Usuario):
-    usuario.id = len(usuarios_db) + 1
-    usuarios_db.append(usuario)
-    return usuario
+def create_usuario(
+    usuario: UsuarioCreate, # Usar modelo Create para entrada
+    db: Session = Depends(get_db)
+):
+    # Criar uma instância do modelo SQLAlchemy Usuario
+    # Em uma aplicação real, você faria hash da senha aqui!
+    db_usuario = models.Usuario(
+        nome=usuario.nome,
+        email=usuario.email,
+        senha_hashed=usuario.senha # !!! LEMBRE-SE DE FAZER HASH DA SENHA EM PRODUÇÃO !!!
+    )
+    db.add(db_usuario)
+    db.commit()
+    db.refresh(db_usuario)
+    return db_usuario # Retorna o objeto recém-criado com o ID
 
 @app.get("/usuarios/", response_model=List[Usuario])
-def read_usuarios():
-    return usuarios_db
+def read_usuarios(db: Session = Depends(get_db)):
+    usuarios = db.query(models.Usuario).all()
+    return usuarios
 
 @app.get("/usuarios/{usuario_id}", response_model=Usuario)
-def read_usuario(usuario_id: int):
-    for usuario in usuarios_db:
-        if usuario.id == usuario_id:
-            return usuario
-    raise HTTPException(status_code=404, detail="Usuário não encontrado")
+def read_usuario(
+    usuario_id: int,
+    db: Session = Depends(get_db)
+):
+    usuario = db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
+    if usuario is None:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    return usuario
 
 @app.put("/usuarios/{usuario_id}", response_model=Usuario)
-def update_usuario(usuario_id: int, usuario_update: Usuario):
-    for index, usuario in enumerate(usuarios_db):
-        if usuario.id == usuario_id:
-            usuarios_db[index] = usuario_update
-            usuario_update.id = usuario_id # Garante que o ID original seja mantido
-            return usuario_update
-    raise HTTPException(status_code=404, detail="Usuário não encontrado")
+def update_usuario(
+    usuario_id: int,
+    usuario_update: UsuarioCreate, # Usar modelo Create para entrada (inclui senha)
+    db: Session = Depends(get_db)
+):
+    usuario = db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
+    if usuario is None:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    # Atualizar campos - !!! LEMBRE-SE DE FAZER HASH DA SENHA SE ELA FOR ATUALIZADA !!!
+    usuario.nome = usuario_update.nome
+    usuario.email = usuario_update.email
+    usuario.senha_hashed = usuario_update.senha # !!! LEMBRE-SE DE FAZER HASH !!!
+
+    db.commit() # Commitar a transação
+    db.refresh(usuario) # Atualizar o objeto
+    return usuario
 
 @app.delete("/usuarios/{usuario_id}")
-def delete_usuario(usuario_id: int):
-    global usuarios_db
-    initial_len = len(usuarios_db)
-    usuarios_db = [usuario for usuario in usuarios_db if usuario.id != usuario_id]
-    if len(usuarios_db) < initial_len:
-        return {"message": f"Usuário com ID {usuario_id} deletado"}
-    raise HTTPException(status_code=404, detail="Usuário não encontrado")
+def delete_usuario(
+    usuario_id: int,
+    db: Session = Depends(get_db)
+):
+    usuario = db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
+    if usuario is None:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    db.delete(usuario)
+    db.commit()
+    return {"message": f"Usuário com ID {usuario_id} deletado"}
 
 # Rotas CRUD para Regiões
 
 @app.post("/regioes/", response_model=Regiao)
-def create_regiao(regiao: Regiao):
-    regiao.id = len(regioes_db) + 1
-    regioes_db.append(regiao)
-    return regiao
+def create_regiao(
+    regiao: RegiaoCreate, # Usar modelo Create para entrada
+    db: Session = Depends(get_db)
+):
+    # Criar uma instância do modelo SQLAlchemy Regiao
+    db_regiao = models.Regiao(
+        nome=regiao.nome
+    )
+    db.add(db_regiao)
+    db.commit()
+    db.refresh(db_regiao)
+    return db_regiao # Retorna o objeto recém-criado com o ID
 
 @app.get("/regioes/", response_model=List[Regiao])
-def read_regioes():
-    return regioes_db
+def read_regioes(db: Session = Depends(get_db)):
+    regioes = db.query(models.Regiao).all()
+    return regioes
 
 @app.get("/regioes/{regiao_id}", response_model=Regiao)
-def read_regiao(regiao_id: int):
-    for regiao in regioes_db:
-        if regiao.id == regiao_id:
-            return regiao
-    raise HTTPException(status_code=404, detail="Região não encontrada")
+def read_regiao(
+    regiao_id: int,
+    db: Session = Depends(get_db)
+):
+    regiao = db.query(models.Regiao).filter(models.Regiao.id == regiao_id).first()
+    if regiao is None:
+        raise HTTPException(status_code=404, detail="Região não encontrada")
+    return regiao
 
 @app.put("/regioes/{regiao_id}", response_model=Regiao)
-def update_regiao(regiao_id: int, regiao_update: Regiao):
-    for index, regiao in enumerate(regioes_db):
-        if regiao.id == regiao_id:
-            regioes_db[index] = regiao_update
-            regiao_update.id = regiao_id # Garante que o ID original seja mantido
-            return regiao_update
-    raise HTTPException(status_code=404, detail="Região não encontrada")
+def update_regiao(
+    regiao_id: int,
+    regiao_update: RegiaoCreate, # Usar modelo Create para entrada
+    db: Session = Depends(get_db)
+):
+    regiao = db.query(models.Regiao).filter(models.Regiao.id == regiao_id).first()
+    if regiao is None:
+        raise HTTPException(status_code=404, detail="Região não encontrada")
+    
+    # Atualizar campos
+    regiao.nome = regiao_update.nome
+
+    db.commit() # Commitar a transação
+    db.refresh(regiao) # Atualizar o objeto
+    return regiao
 
 @app.delete("/regioes/{regiao_id}")
-def delete_regiao(regiao_id: int):
-    global regioes_db
-    initial_len = len(regioes_db)
-    regioes_db = [regiao for regiao in regioes_db if regiao.id != regiao_id]
-    if len(regioes_db) < initial_len:
-        return {"message": f"Região com ID {regiao_id} deletada"}
-    raise HTTPException(status_code=404, detail="Região não encontrada")
+def delete_regiao(
+    regiao_id: int,
+    db: Session = Depends(get_db)
+):
+    regiao = db.query(models.Regiao).filter(models.Regiao.id == regiao_id).first()
+    if regiao is None:
+        raise HTTPException(status_code=404, detail="Região não encontrada")
+    
+    db.delete(regiao)
+    db.commit()
+    return {"message": f"Região com ID {regiao_id} deletada"}
 
 
