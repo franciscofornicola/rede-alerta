@@ -1,30 +1,95 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MenuItemCard from '../components/MenuItemCard'; // Importar o novo componente
+import MenuItemCard from '../components/MenuItemCard';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 
 const PainelGeral = ({ navigation }) => {
-  const [alertas, setAlertas] = useState([]); // Estado para armazenar os alertas
+  const [alertas, setAlertas] = useState([]);
 
-  useEffect(() => {
-    const fetchAlertas = async () => {
-      try {
-        // Substitua 'seu_endereco_do_backend' pelo endereço onde seu FastAPI está rodando
-        // Usando a URL do backend deployado no Render
-        const response = await fetch('https://rede-alerta-backend.onrender.com/alertas/');
-        const data = await response.json();
-        setAlertas(data); // Armazena os alertas no estado
-      } catch (error) {
-        console.error('Erro ao buscar alertas:', error);
+  useFocusEffect(
+    useCallback(() => {
+      const fetchAlertas = async () => {
+        console.log('Buscando alertas...');
+        try {
+          const response = await fetch('http://192.168.0.236:8000/alertas/');
+          const data = await response.json();
+          console.log('Alertas recebidos:', data);
+          setAlertas(data);
+        } catch (error) {
+          console.error('Erro ao buscar alertas:', error);
+        }
+      };
+
+      fetchAlertas();
+
+      return () => {
+        console.log('Saindo da tela PainelGeral');
+      };
+    }, [])
+  );
+
+  const handleDeleteAlerta = async (id) => {
+    console.log(`Deletando alerta com ID: ${id}`);
+    try {
+      const response = await fetch(`http://192.168.0.236:8000/alertas/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Erro ao deletar alerta no backend');
       }
-    };
 
-    fetchAlertas(); // Chama a função para buscar os alertas
+      setAlertas(alertas.filter(alerta => alerta.id !== id));
+      console.log(`Alerta com ID ${id} deletado com sucesso.`);
 
-    // A lista de dependências vazia [] garante que este efeito rode apenas uma vez (ao montar o componente)
-  }, []);
+    } catch (error) {
+      console.error('Erro ao deletar alerta:', error);
+      Alert.alert('Erro', `Falha ao deletar relato: ${error.message}`);
+    }
+  };
 
-  // A função renderMenuItem foi substituída pelo componente MenuItemCard
+  const handleUpdateStatus = async (id, status) => {
+    console.log(`Atualizando status do alerta com ID: ${id} para: ${status}`);
+    try {
+      const response = await fetch(`http://192.168.0.236:8000/alertas/${id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ status: status }),
+      });
+
+      console.log('Resposta do servidor:', response.status);
+      const responseText = await response.text();
+      console.log('Texto da resposta:', responseText);
+
+      if (!response.ok) {
+        throw new Error(`Erro ${response.status}: ${responseText}`);
+      }
+
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (e) {
+        console.error('Erro ao fazer parse da resposta:', e);
+        throw new Error('Erro ao processar resposta do servidor');
+      }
+
+      setAlertas(alertas.map(alerta =>
+        alerta.id === id ? { ...alerta, status } : alerta
+      ));
+      console.log(`Status do alerta com ID ${id} atualizado com sucesso.`);
+
+    } catch (error) {
+      console.error('Erro ao atualizar status do alerta:', error);
+      Alert.alert('Erro', `Falha ao atualizar status do relato: ${error.message}`);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -44,36 +109,64 @@ const PainelGeral = ({ navigation }) => {
             title='Relatar Ocorrência'
             subtitle='Compartilhe informações urgentes e locais'
             iconName='report-problem'
-            bgColor='#E57373' // Exemplo de cor para Relatar (vermelho)
-            iconBgColor='#C62828' // Cor de fundo do ícone
+            bgColor='#E57373'
+            iconBgColor='#C62828'
             onPress={() => navigation.navigate('Relato')}
           />
           <MenuItemCard
             title='Dicas de Segurança'
             subtitle='Orientações para agir em diferentes situações'
             iconName='lightbulb-outline'
-            bgColor='#FFB74D' // Exemplo de cor para Dicas (laranja)
-            iconBgColor='#EF6C00' // Cor de fundo do ícone
+            bgColor='#FFB74D'
+            iconBgColor='#EF6C00'
             onPress={() => navigation.navigate('Dicas')}
           />
           <MenuItemCard
             title='Meu Histórico'
             subtitle='Veja seus relatos e contribuições passadas'
             iconName='history'
-            bgColor='#64B5F6' // Exemplo de cor para Histórico (azul claro)
-            iconBgColor='#1565C0' // Cor de fundo do ícone
+            bgColor='#64B5F6'
+            iconBgColor='#1565C0'
             onPress={() => navigation.navigate('Historico')}
           />
           {/* Adicionar mais itens de menu conforme o protótipo, se houver */}
-          {/* Exemplo: <MenuItemCard
+          {/* <MenuItemCard
             title='Mapa de Alertas'
             subtitle='Visualize ocorrências na sua região'
             iconName='map'
-            bgColor='#81C784' // Exemplo de cor (verde)
-            iconBgColor='#388E3C' // Cor de fundo do ícone
+            bgColor='#81C784'
+            iconBgColor='#388E3C'
             onPress={() => navigation.navigate('Mapa')}
           />*/}
         </View>
+
+        {/* Latest Alerts Section */}
+        <View style={styles.alertsContainer}>
+          <Text style={styles.alertsTitle}>Últimos Alertas</Text>
+          {alertas.length === 0 ? (
+            <Text style={styles.noAlertsText}>Nenhum alerta encontrado.</Text>
+          ) : (
+            alertas.map((alerta) => (
+              <View key={alerta.id} style={styles.alertItem}>
+                <View style={styles.alertContent}>
+                  <Text style={styles.alertDescription}>{alerta.descricao}</Text>
+                  <Text style={styles.alertMeta}>
+                    Tipo: {alerta.tipo} | Status: {alerta.status} | Data: {alerta.data_ocorrencia}
+                  </Text>
+                </View>
+                {alerta.status !== 'Resolvido' && (
+                  <TouchableOpacity onPress={() => handleUpdateStatus(alerta.id, 'Resolvido')} style={styles.updateStatusButton}>
+                    <Text style={styles.updateStatusButtonText}>Marcar como Resolvido</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={() => handleDeleteAlerta(alerta.id)} style={styles.deleteButton}>
+                  <MaterialIcons name="delete" size={24} color="#E57373" />
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
+        </View>
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -82,7 +175,7 @@ const PainelGeral = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F4F4', // Cor de fundo geral
+    backgroundColor: '#F4F4F4',
   },
   contentContainer: {
     padding: 20,
@@ -107,10 +200,59 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   menuContainer: {
-    // Sem flex: 1 para permitir o scroll do ScrollView
-    gap: 15, // Espaçamento entre os itens do menu
+    gap: 15,
   },
-  // Os estilos para menuItem, menuIconContainer, menuTextContainer, etc. foram movidos para MenuItemCard.js
+  alertsContainer: {
+    marginTop: 20,
+  },
+  alertsTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333333',
+    marginBottom: 10,
+  },
+  noAlertsText: {
+    fontSize: 16,
+    color: '#666666',
+    textAlign: 'center',
+  },
+  alertItem: {
+    backgroundColor: '#FFFFFF',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  alertContent: {
+    flex: 1,
+    marginRight: 10,
+  },
+  alertDescription: {
+    fontSize: 16,
+    color: '#333333',
+    marginBottom: 5,
+  },
+  alertMeta: {
+    fontSize: 14,
+    color: '#666666',
+  },
+  updateStatusButton: {
+    backgroundColor: '#FFB74D',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 5,
+    marginLeft: 5,
+  },
+  updateStatusButtonText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333333',
+  },
+  deleteButton: {
+    marginLeft: 5,
+  },
 });
 
 export default PainelGeral; 

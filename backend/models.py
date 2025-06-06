@@ -1,8 +1,10 @@
 from pydantic import BaseModel
 from typing import List, Optional
-from sqlalchemy import Column, Integer, String, Float
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.sql.sqltypes import DateTime
+from sqlalchemy.types import TIMESTAMP
+from sqlalchemy.orm import relationship
+from datetime import datetime
 
 # Definir a base declarativa
 Base = declarative_base()
@@ -12,35 +14,88 @@ class Alerta(Base):
     __tablename__ = "alertas"
 
     id = Column(Integer, primary_key=True, index=True)
+    titulo = Column(String(255), nullable=False)
     tipo = Column(String(255))
     descricao = Column(String(500))
     latitude = Column(Float)
     longitude = Column(Float)
     status = Column(String(50), default="Em análise")
-    data_ocorrencia = Column(String(50)) # Manter como String por enquanto, ajustar se necessário para DateTime no Oracle
+    data_ocorrencia = Column(TIMESTAMP)
+    usuario_id = Column(Integer, ForeignKey('usuarios.id'), nullable=False)
 
-    # Adicione outros campos relevantes (ex: usuario_id, data_registro, etc.)
+# Definir o modelo SQLAlchemy (Tabela) para Conquista
+class Conquista(Base):
+    __tablename__ = "conquistas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nome = Column(String(100))
+    descricao = Column(String(500))
+    icone = Column(String(50))
+    cor = Column(String(20))
+    pontos_necessarios = Column(Integer)
+
+# Definir o modelo SQLAlchemy (Tabela) para UsuarioConquista
+class UsuarioConquista(Base):
+    __tablename__ = "usuario_conquistas"
+
+    usuario_id = Column(Integer, ForeignKey('usuarios.id'), primary_key=True)
+    conquista_id = Column(Integer, ForeignKey('conquistas.id'), primary_key=True)
+    data_conquista = Column(TIMESTAMP, default=datetime.now)
+
+    # Relacionamentos
+    usuario = relationship("Usuario", back_populates="conquistas")
+    conquista = relationship("Conquista")
 
 # Definir o modelo SQLAlchemy (Tabela) para Usuário
 class Usuario(Base):
     __tablename__ = "usuarios"
 
-    id = Column(Integer, primary_key=True, index=True) # Assumindo que o ID de usuário também tem sequence/autogen
+    id = Column(Integer, primary_key=True, index=True)
     nome = Column(String(100))
     email = Column(String(100), unique=True, index=True)
-    senha_hashed = Column(String(100)) # Armazenar senha hashed, não a senha pura
-    # Adicione outros campos (ex: regiao_id, data_cadastro, etc.)
+    senha_hashed = Column(String(100))
+    nivel = Column(Integer, default=1)
+    pontos = Column(Integer, default=0)
+
+    # Relacionamento com conquistas
+    conquistas = relationship("UsuarioConquista", back_populates="usuario")
 
 # Definir o modelo SQLAlchemy (Tabela) para Região
 class Regiao(Base):
     __tablename__ = "regioes"
 
-    id = Column(Integer, primary_key=True, index=True) # Assumindo que o ID de região também tem sequence/autogen
+    id = Column(Integer, primary_key=True, index=True)
     nome = Column(String(100), unique=True, index=True)
-    # Adicione outros campos
 
 # --- Modelos Pydantic (Schemas) --- #
-# Usados para validação de dados de entrada e saída das APIs
+
+class ConquistaBase(BaseModel):
+    nome: str
+    descricao: str
+    icone: str
+    cor: str
+    pontos_necessarios: int
+
+class ConquistaCreate(ConquistaBase):
+    pass
+
+class ConquistaSchema(ConquistaBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+class UsuarioConquistaBase(BaseModel):
+    usuario_id: int
+    conquista_id: int
+    data_conquista: datetime
+
+class UsuarioConquistaCreate(UsuarioConquistaBase):
+    pass
+
+class UsuarioConquistaSchema(UsuarioConquistaBase):
+    class Config:
+        from_attributes = True
 
 class AlertaBase(BaseModel):
     tipo: str
@@ -48,32 +103,32 @@ class AlertaBase(BaseModel):
     latitude: float
     longitude: float
 
-class AlertaCreate(AlertaBase): # Modelo para criar Alerta (não precisa de ID)
+class AlertaCreate(AlertaBase):
     pass
 
 class AlertaSchema(AlertaBase):
     id: int
     status: str
-    data_ocorrencia: str # Manter como string por consistência com o modelo SQLAlchemy
+    data_ocorrencia: str
 
     class Config:
-        from_attributes = True # Era orm_mode = True em Pydantic v1
-
+        from_attributes = True
 
 class UsuarioBase(BaseModel):
     nome: str
     email: str
+    nivel: int = 1
+    pontos: int = 0
 
 class UsuarioCreate(UsuarioBase):
-    senha: str # Senha é necessária na criação
+    senha: str
 
 class UsuarioSchema(UsuarioBase):
     id: int
-    # Não incluir senha_hashed no modelo de retorno da API
+    conquistas: List[ConquistaSchema] = []
 
     class Config:
-        from_attributes = True # Era orm_mode = True em Pydantic v1
-
+        from_attributes = True
 
 class RegiaoBase(BaseModel):
     nome: str
@@ -85,21 +140,14 @@ class RegiaoSchema(RegiaoBase):
     id: int
 
     class Config:
-        from_attributes = True # Era orm_mode = True em Pydantic v1
-
+        from_attributes = True
 
 class AlertaUpdateStatus(BaseModel):
     status: str
 
-
-# Modelos Pydantic que já existiam (movidos para baixo e renomeados/ajustados)
-# class Alerta(BaseModel):
-# ... (outras definições Pydantic originais movidas/adaptadas acima)
-
-# Exemplo de modelo para o Relato (payload de criação)
 class RelatoCreate(BaseModel):
+    titulo: str
     tipo: str
     descricao: str
     latitude: float
-    longitude: float
-    # Pode incluir outros dados necessários para a criação do relato 
+    longitude: float 

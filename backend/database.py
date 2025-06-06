@@ -1,43 +1,61 @@
 import os
-# import oracledb # Já importado pelo sqlalchemy
 from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
+import oracledb # Importar o driver oracledb
 
-# Removida a parte inicial de conexão direta
+# Carregar variáveis de ambiente do arquivo .env
+load_dotenv()
 
-# Configurações de conexão com o banco de dados Oracle usando variáveis de ambiente
-# É ALTAMENTE recomendado usar variáveis de ambiente para as credenciais
-DB_USER = os.environ.get("DB_USER")
-DB_PASSWORD = os.environ.get("DB_PASSWORD")
-# Formato DB_CONNECT_STRING: "hostname:port/servicename" ou um nome TNS
-DB_CONNECT_STRING = os.environ.get("DB_CONNECT_STRING") 
+# Recuperar credenciais e detalhes de conexão do Oracle das variáveis de ambiente
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT") # PORTA deve vir como string do .env
+DB_SID = os.getenv("DB_SID")   # Pode ser SID ou SERVICE_NAME dependendo da config do banco
 
-# Verifica se as variáveis de ambiente estão configuradas
-if not DB_USER or not DB_PASSWORD or not DB_CONNECT_STRING:
-    print("ERROR: Variáveis de ambiente do banco de dados não configuradas (DB_USER, DB_PASSWORD, DB_CONNECT_STRING).")
-    # Em um ambiente de produção, você pode querer encerrar a aplicação aqui
-    # raise EnvironmentError("Database credentials not set in environment variables")
+# Verificar se as variáveis de ambiente essenciais foram carregadas
+if not all([DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_SID]):
+    # Se as variáveis não estiverem definidas, usaremos um banco de dados SQLite em memória como fallback temporário
+    SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+    print("Aviso: Variáveis de ambiente do Oracle incompletas. Usando SQLite em memória como fallback.")
+else:
+    try:
+        # Construir o DSN usando oracledb.makedsn
+        # oracledb.makedsn espera a porta como int
+        dsn_tns = oracledb.makedsn(host=DB_HOST, port=int(DB_PORT), sid=DB_SID) # Use sid= ou service_name= conforme necessário
+        
+        # Montar a URL de conexão para o Oracle usando o DSN gerado
+        # Formato esperado: oracle+oracledb://user:password@dsn_string
+        SQLALCHEMY_DATABASE_URL = f"oracle+oracledb://{DB_USER}:{DB_PASSWORD}@{dsn_tns}"
+        print(f"Usando Oracle para a conexão com o banco de dados em {DB_HOST}:{DB_PORT} com SID/Service Name {DB_SID}.")
 
-# URL de conexão para SQLAlchemy usando o driver oracledb
-# O formato da URL é 'oracle+oracledb://user:password@dsn' ou 'oracle+oracledb://user:password@host:port/servicename'
-# Usaremos o formato com DSN/connect string fornecido na variável DB_CONNECT_STRING
-SQLALCHEMY_DATABASE_URL = f"oracle+oracledb://{DB_USER}:{DB_PASSWORD}@{DB_CONNECT_STRING}"
+    except Exception as e:
+        print(f"Erro ao configurar conexão Oracle: {e}")
+        # Em caso de erro na configuração do DSN, fallback para SQLite
+        SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+        print("Aviso: Erro na configuração do Oracle. Usando SQLite em memória como fallback.")
 
-# Cria o engine do SQLAlchemy
-# disable_cx_oracle_connector=True é necessário ao usar python-oracledb em vez de cx_Oracle
-# enable_async=True se você for usar async, mas por enquanto usamos síncrono
+
+# Criar o engine do SQLAlchemy
+# O argumento arraysize=1000 é uma otimização para oracledb
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    # Adicionar opções como pool_size, max_overflow conforme necessário para a produção
-    # disable_cx_oracle_connector=True # Removido pois create_engine com +oracledb deve gerenciar isso
+    # connect_args={"check_same_thread": False} if "sqlite" in SQLALCHEMY_DATABASE_URL else {},
+    #echo=True, # Descomente para ver as queries SQL geradas (útil para debug)
+    # arraysize=1000 if "oracle" in SQLALCHEMY_DATABASE_URL else None
+    # Adicionar pool_pre_ping=True pode ajudar com conexões ociosas (opcional)
+    # pool_pre_ping=True
 )
 
-# Cria uma SessionLocal class
-# Cada instância da classe SessionLocal será uma sessão de banco de dados
+# Criar a sessão do banco de dados
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Função de dependência para obter uma sessão de banco de dados
-# Esta função será usada nas rotas do FastAPI
+# Base para os modelos declarativos
+Base = declarative_base()
+
+# Função de dependência para obter a sessão do banco de dados
 def get_db():
     db = SessionLocal()
     try:
