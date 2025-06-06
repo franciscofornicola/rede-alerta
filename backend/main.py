@@ -221,16 +221,4 @@ def delete_regiao(
     db.commit()
     return {"message": f"Região com ID {regiao_id} deletada"}
 
-def startup_event():
-    import models # Importar modelos SQLAlchemy (tabelas) - MOVIDO PARA DENTRO DA FUNÇÃO
-    try:
-        # Cria todas as tabelas definidas em models.py
-        models.Base.metadata.create_all(bind=engine)
-        print("INFO: Tabelas do banco de dados verificadas/criadas com sucesso.")
-    except Exception as e:
-        print(f"ERROR: Erro ao criar tabelas do banco de dados: {e}")
-        # Em produção, você pode querer sair ou logar severamente
-
-app.add_event_handler("startup", startup_event)
-
 
