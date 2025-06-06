@@ -8,10 +8,13 @@ from sqlalchemy.orm import Session # Importar Session
 from database import SessionLocal, engine, get_db # Importar get_db e outros de database
 from sqlalchemy import text # Importar text para queries brutas se necessário (ex: create_all)
 
+app = FastAPI()
+
 # Criar tabelas no banco de dados ao iniciar a aplicação (se não existirem)
 # Remover ou ajustar isso em produção se o esquema for gerenciado de outra forma
 @app.on_event("startup")
 def startup_event():
+    import models # Importar modelos SQLAlchemy (tabelas) - MOVIDO PARA DENTRO DA FUNÇÃO
     try:
         # Cria todas as tabelas definidas em models.py
         models.Base.metadata.create_all(bind=engine)
@@ -19,8 +22,6 @@ def startup_event():
     except Exception as e:
         print(f"ERROR: Erro ao criar tabelas do banco de dados: {e}")
         # Em produção, você pode querer sair ou logar severamente
-
-app = FastAPI()
 
 # Adicionar middleware CORS - Remover se não for mais necessário com o deploy
 app.add_middleware(
