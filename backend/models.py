@@ -12,13 +12,13 @@ class Alerta(Base):
     __tablename__ = "alertas"
 
     id = Column(Integer, primary_key=True, index=True)
-    tipo = Column(String)
-    descricao = Column(String)
+    tipo = Column(String(255))
+    descricao = Column(String(500))
     latitude = Column(Float)
     longitude = Column(Float)
-    status = Column(String, default="Em análise")
+    status = Column(String(255), default="Em análise")
     # data_ocorrencia = Column(DateTime) # Exemplo de coluna de data/hora
-    data_ocorrencia = Column(String) # Mantido como string por enquanto
+    data_ocorrencia = Column(String(255)) # Mantido como string por enquanto
 
     # Adicione outros campos relevantes (ex: usuario_id, data_registro, etc.)
 
