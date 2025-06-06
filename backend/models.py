@@ -16,8 +16,8 @@ class Alerta(Base):
     descricao = Column(String(500))
     latitude = Column(Float)
     longitude = Column(Float)
-    status = Column(String(255), default="Em análise")
-    data_ocorrencia = Column(String(255))
+    status = Column(String(50), default="Em análise")
+    data_ocorrencia = Column(String(50))
 
     # Adicione outros campos relevantes (ex: usuario_id, data_registro, etc.)
 
@@ -26,9 +26,9 @@ class Usuario(Base):
     __tablename__ = "usuarios"
 
     id = Column(Integer, primary_key=True, index=True)
-    nome = Column(String)
-    email = Column(String, unique=True, index=True)
-    senha_hashed = Column(String) # Armazenar senha hashed, não a senha pura
+    nome = Column(String(100))
+    email = Column(String(100), unique=True, index=True)
+    senha_hashed = Column(String(100)) # Armazenar senha hashed, não a senha pura
     # Adicione outros campos (ex: regiao_id, data_cadastro, etc.)
 
 # Definir o modelo SQLAlchemy (Tabela) para Região
@@ -36,7 +36,7 @@ class Regiao(Base):
     __tablename__ = "regioes"
 
     id = Column(Integer, primary_key=True, index=True)
-    nome = Column(String, unique=True, index=True)
+    nome = Column(String(100), unique=True, index=True)
     # Adicione outros campos
 
 # --- Modelos Pydantic (Schemas) --- #
