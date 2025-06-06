@@ -10,8 +10,8 @@ const PainelGeral = ({ navigation }) => {
     const fetchAlertas = async () => {
       try {
         // Substitua 'seu_endereco_do_backend' pelo endereço onde seu FastAPI está rodando
-        // Se estiver rodando localmente como fizemos, será 'http://192.168.0.236:8000'
-        const response = await fetch('http://192.168.0.236:8000/alertas/');
+        // Usando a URL do backend deployado no Render
+        const response = await fetch('https://rede-alerta-backend.onrender.com/alertas/');
         const data = await response.json();
         setAlertas(data); // Armazena os alertas no estado
       } catch (error) {

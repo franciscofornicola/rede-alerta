@@ -27,7 +27,7 @@ function MainTabs() {
           let iconName;
 
           if (route.name === 'Inicio') {
-            iconName = focused ? 'home' : 'home-outline';
+            iconName = 'home';
           } else if (route.name === 'Mapa') {
             iconName = focused ? 'map' : 'map';
           } else if (route.name === 'Relato') {

@@ -11,7 +11,7 @@ const InputText = ({
   multiline = false,
   numberOfLines,
   style,
-  ...
+  ...restProps
 }) => {
   return (
     <View style={styles.container}>
@@ -26,7 +26,7 @@ const InputText = ({
         multiline={multiline}
         numberOfLines={numberOfLines}
         placeholderTextColor="#A0A0A0"
-        {...}
+        {...restProps}
       />
     </View>
   );
